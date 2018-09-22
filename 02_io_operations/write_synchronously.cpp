@@ -21,7 +21,8 @@ void writeToSocket(boost::asio::ip::tcp::socket& sock)
 	}
 }
 
-// Run 'netcat -l 127.0.0.1 -p 3333' before start 
+// Run 'netcat -l 127.0.0.1 -p 3333' before start
+// to get message from current client
 int main()
 {
 	std::string_view raw_ip_address = "127.0.0.1";
@@ -46,7 +47,7 @@ int main()
 	catch(boost::system::system_error &e)
 	{
 		std::cerr << "Error occured! Error code = " << e.code() 
-		<< ". Message: " << e.what();
+		<< ". Message: " << e.what() << '\n';
 
 		return e.code().value();
 	}

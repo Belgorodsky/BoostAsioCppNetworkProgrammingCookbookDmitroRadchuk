@@ -1,20 +1,25 @@
 #include <boost/asio.hpp>
 #include <iostream>
 
-void writeToSocketEnhanced(boost::asio::ip::tcp::socket& sock)
+void sendToSocketWithoutRoute(boost::asio::ip::tcp::socket& sock)
 {
 	// Step 2. Allocating and filling the buffer.
 	std::string_view buf = "Hello\n";
 
+	std::size_t total_bytes_written = 0;
+
 	// Step 3. Run the loop until all data is written
 	// to the socket.
-	std::size_t total_bytes_written = 
-		boost::asio::write(
-			sock,
-			boost::asio::buffer(buf)
-	);
-
-	std::cout << "total_bytes_written: " << total_bytes_written << '\n';
+	while (total_bytes_written != buf.length())
+		{
+			total_bytes_written += sock.send(
+			boost::asio::buffer(
+				buf.data() + total_bytes_written,
+				buf.length() - total_bytes_written
+			),
+			boost::asio::socket_base::message_do_not_route
+		);
+	}
 }
 
 // Run 'netcat -l 127.0.0.1 -p 3333' before start
@@ -38,7 +43,7 @@ int main()
 
 		sock.connect(ep);
 
-		writeToSocketEnhanced(sock);
+		sendToSocketWithoutRoute(sock);
 	}
 	catch(boost::system::system_error &e)
 	{
