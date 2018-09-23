@@ -39,11 +39,12 @@ void callback(
 		auto buf_size = s->buf.length() -
 				s->total_bytes_written;
 
-		s->sock->async_write_some(
+		s->sock->async_send(
 			boost::asio::buffer(
 				buf_begin,
 				buf_size
 			),
+			boost::asio::socket_base::message_do_not_route,
 			[
 				s=std::move(s),
 				&fn=callback
@@ -76,8 +77,9 @@ void writeToSocket(
 	auto &&buf = s->buf;
 
 	// Step 5. Initiating asynchronous write operation.
-	s->sock->async_write_some(
+	s->sock->async_send(
 		boost::asio::buffer(buf),
+		boost::asio::socket_base::message_do_not_route,
 		[
 			s=std::move(s),
 			&fn=callback

@@ -2,64 +2,31 @@
 #include <iostream>
 #include <memory>
 
-// Keeps objects we need in a callback to
-// identify whether all data has been written
-// to the socket and to initiate next async
-// writing operation if needed.
+// Keeps objects we need in a callback.
 struct Session
 {
 	std::shared_ptr<boost::asio::ip::tcp::socket> sock;
 	std::string buf;
-	std::size_t total_bytes_written;
 };
 
 // Function used as a callback for
 // asynchronous writing operation.
-// Checks if all data from the buffer has
-// been written to the socket and initiates
-// new asynchronous writing operation if needed.
 void callback(
 	const boost::system::error_code& ec,
 	std::size_t bytes_transfered,
 	std::shared_ptr<Session> s
 )
 {
-	if (!ec && s)
+	if (ec)
 	{
-		s->total_bytes_written += bytes_transfered;
-
-		if (s->total_bytes_written == s->buf.length())
-		{
-			return;
-		}
-		
-		auto buf_begin = 
-				s->buf.c_str() +
-				s->total_bytes_written;
-		auto buf_size = s->buf.length() -
-				s->total_bytes_written;
-
-		s->sock->async_write_some(
-			boost::asio::buffer(
-				buf_begin,
-				buf_size
-			),
-			[
-				s=std::move(s),
-				&fn=callback
-			](auto ec, auto bt)
-			{
-				fn(ec, bt, std::move(s));
-			}
-		);
-
-		return;
+		std::cerr << "Error occured! Error code = "
+		<< ec.value()
+		<< ". Message: " << ec.message()
+		<< '\n';
 	}
-
-	std::cerr << "Error occured! Error code = "
-	<< ec.value()
-	<< ". Message: " << ec.message()
-	<< '\n';
+	
+	// Here we know that all the data has
+	// been written to the socket.
 }
 
 void writeToSocket(
@@ -68,14 +35,13 @@ void writeToSocket(
 {
 	auto s = std::make_shared<Session>();
 
-	// Step 4. Allocating and filling the buffer.
+	// Allocating and filling the buffer.
 	s->buf = "Hello\n";
-	s->total_bytes_written = 0;
 	s->sock = std::move(sock);
 
 	auto &&buf = s->buf;
 
-	// Step 5. Initiating asynchronous write operation.
+	// Initiating asynchronous write operation.
 	s->sock->async_write_some(
 		boost::asio::buffer(buf),
 		[
@@ -104,7 +70,7 @@ int main()
 
 		boost::asio::io_context ioc;
 
-		// Step 3. Allocating, opening and connecting a socket.
+		// Allocating, opening and connecting a socket.
 		auto sock = std::make_shared<boost::asio::ip::tcp::socket>(
 			ioc,
 			ep.protocol()
@@ -114,7 +80,6 @@ int main()
 
 		writeToSocket(std::move(sock));
 
-		// Step 6.
 		ioc.run();
 	}
 	catch (boost::system::system_error &e)
