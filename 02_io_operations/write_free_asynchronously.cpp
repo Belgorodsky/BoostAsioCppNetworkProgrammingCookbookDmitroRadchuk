@@ -13,7 +13,7 @@ struct Session
 // asynchronous writing operation.
 void callback(
 	const boost::system::error_code& ec,
-	std::size_t bytes_transfered,
+	std::size_t bytes_transferred,
 	std::shared_ptr<Session> s
 )
 {
@@ -40,9 +40,10 @@ void writeToSocket(
 	s->sock = std::move(sock);
 
 	auto &&buf = s->buf;
+	auto &&sck = s->sock;
 
 	// Initiating asynchronous write operation.
-	s->sock->async_write_some(
+	sck->async_write_some(
 		boost::asio::buffer(buf),
 		[
 			s=std::move(s),

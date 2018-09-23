@@ -2,6 +2,7 @@
 #include <iostream>
 #include <memory>
 
+// Step 1.
 // Keeps objects we need in a callback to
 // identify whether all data has been written
 // to the socket and to initiate next async
@@ -13,6 +14,7 @@ struct Session
 	std::size_t total_bytes_written;
 };
 
+// Step 2.
 // Function used as a callback for
 // asynchronous writing operation.
 // Checks if all data from the buffer has
@@ -20,13 +22,13 @@ struct Session
 // new asynchronous writing operation if needed.
 void callback(
 	const boost::system::error_code& ec,
-	std::size_t bytes_transfered,
+	std::size_t bytes_transferred,
 	std::shared_ptr<Session> s
 )
 {
 	if (!ec && s)
 	{
-		s->total_bytes_written += bytes_transfered;
+		s->total_bytes_written += bytes_transferred;
 
 		if (s->total_bytes_written == s->buf.length())
 		{
@@ -38,8 +40,8 @@ void callback(
 				s->total_bytes_written;
 		auto buf_size = s->buf.length() -
 				s->total_bytes_written;
-
-		s->sock->async_write_some(
+		auto &&sck = s->sock;
+		sck->async_write_some(
 			boost::asio::buffer(
 				buf_begin,
 				buf_size
@@ -74,9 +76,10 @@ void writeToSocket(
 	s->sock = std::move(sock);
 
 	auto &&buf = s->buf;
+	auto &&sck = s->sock;
 
 	// Step 5. Initiating asynchronous write operation.
-	s->sock->async_write_some(
+	sck->async_write_some(
 		boost::asio::buffer(buf),
 		[
 			s=std::move(s),

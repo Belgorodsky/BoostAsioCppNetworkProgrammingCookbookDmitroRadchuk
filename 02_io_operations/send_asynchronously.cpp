@@ -20,13 +20,13 @@ struct Session
 // new asynchronous writing operation if needed.
 void callback(
 	const boost::system::error_code& ec,
-	std::size_t bytes_transfered,
+	std::size_t bytes_transferred,
 	std::shared_ptr<Session> s
 )
 {
 	if (!ec && s)
 	{
-		s->total_bytes_written += bytes_transfered;
+		s->total_bytes_written += bytes_transferred;
 
 		if (s->total_bytes_written == s->buf.length())
 		{
@@ -38,8 +38,9 @@ void callback(
 				s->total_bytes_written;
 		auto buf_size = s->buf.length() -
 				s->total_bytes_written;
+		auto &&sck = s->sock;
 
-		s->sock->async_send(
+		sck->async_send(
 			boost::asio::buffer(
 				buf_begin,
 				buf_size
@@ -75,9 +76,10 @@ void writeToSocket(
 	s->sock = std::move(sock);
 
 	auto &&buf = s->buf;
+	auto &&sck = s->sock;
 
 	// Step 5. Initiating asynchronous write operation.
-	s->sock->async_send(
+	sck->async_send(
 		boost::asio::buffer(buf),
 		boost::asio::socket_base::message_do_not_route,
 		[
