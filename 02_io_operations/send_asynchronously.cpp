@@ -38,9 +38,9 @@ void callback(
 				s->total_bytes_written;
 		auto buf_size = s->buf.length() -
 				s->total_bytes_written;
-		auto &&sck = s->sock;
+		auto sck_raw_ptr = s->sock.get();
 
-		sck->async_send(
+		sck_raw_ptr->async_send(
 			boost::asio::buffer(
 				buf_begin,
 				buf_size
@@ -75,11 +75,11 @@ void writeToSocket(
 	s->total_bytes_written = 0;
 	s->sock = std::move(sock);
 
-	auto &&buf = s->buf;
-	auto &&sck = s->sock;
+	std::string_view buf = s->buf;
+	auto sck_raw_ptr = s->sock.get();
 
 	// Step 5. Initiating asynchronous write operation.
-	sck->async_send(
+	sck_raw_ptr->async_send(
 		boost::asio::buffer(buf),
 		boost::asio::socket_base::message_do_not_route,
 		[

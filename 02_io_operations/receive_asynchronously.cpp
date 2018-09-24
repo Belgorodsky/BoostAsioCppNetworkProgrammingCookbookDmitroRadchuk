@@ -33,12 +33,14 @@ void callback(
 	{
 		s->total_bytes_read += bytes_transferred;
 
-		auto &&buf = s->buf;
+		auto buf_raw_ptr = s->buf.data();
+		auto sck_raw_ptr = s->sock.get();
+		auto offset = s->total_bytes_read;
 
-		if (s->total_bytes_read == buf_size)
+		if (offset == buf_size)
 		{
 			std::string_view buf_view(
-				reinterpret_cast<const char*>(buf.data()),
+				reinterpret_cast<const char*>(buf_raw_ptr),
 				buf_size
 			);
 			std::cout << "Read operation complete! Buffer as array of chars: '"
@@ -46,13 +48,12 @@ void callback(
 			return;
 		}
 
-		auto &&sock = s->sock;
-		sock->async_receive(
+		sck_raw_ptr->async_receive(
 			boost::asio::buffer(
-				buf.data() + 
-				s->total_bytes_read,
+				buf_raw_ptr + 
+				offset,
 				buf_size - 
-				s->total_bytes_read
+				offset
 			),
 			boost::asio::socket_base::message_do_not_route,
 			[
@@ -87,12 +88,12 @@ void readFromSocket(
 	auto s = std::make_shared<Session<MESSAGE_SIZE>>();
 
 	s->sock = std::move(sock);
-	auto &&buf = s->buf;
-	auto &&sck = s->sock;
+	auto buf_raw_ptr = s->buf.data();
+	auto sck_raw_ptr = s->sock.get();
 
 	// Step 5. Initiating asynchronous reading operation.
-	sck->async_receive(
-		boost::asio::buffer(buf),
+	sck_raw_ptr->async_receive(
+		boost::asio::buffer(buf_raw_ptr, MESSAGE_SIZE),
 		boost::asio::socket_base::message_do_not_route,
 		[
 			fn=callback<MESSAGE_SIZE>,

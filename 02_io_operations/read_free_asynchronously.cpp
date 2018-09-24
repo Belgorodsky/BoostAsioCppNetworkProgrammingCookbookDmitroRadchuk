@@ -52,13 +52,16 @@ void readFromSocket(
 	auto s = std::make_shared<Session<MESSAGE_SIZE>>();
 
 	s->sock = std::move(sock);
-	auto &&buf = s->buf;
-	auto &&sck = s->sock;
+	auto buf_raw_ptr = s->buf.data();
+	auto sck_raw_ptr = s->sock.get();
 
 	// Step 5. Initiating asynchronous reading operation.
 	boost::asio::async_read(
-		*sck,
-		boost::asio::buffer(buf),
+		*sck_raw_ptr,
+		boost::asio::buffer(
+			buf_raw_ptr,
+			MESSAGE_SIZE
+		),
 		[
 			fn=callback<MESSAGE_SIZE>,
 			s=std::move(s)

@@ -39,11 +39,11 @@ void writeToSocket(
 	s->buf = "Hello\n";
 	s->sock = std::move(sock);
 
-	auto &&buf = s->buf;
-	auto &&sck = s->sock;
+	std::string_view  buf = s->buf;
+	auto sck_raw_ptr = s->sock.get();
 
 	// Initiating asynchronous write operation.
-	sck->async_write_some(
+	sck_raw_ptr->async_write_some(
 		boost::asio::buffer(buf),
 		[
 			s=std::move(s),

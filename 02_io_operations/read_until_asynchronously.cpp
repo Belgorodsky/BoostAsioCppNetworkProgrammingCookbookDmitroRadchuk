@@ -8,7 +8,7 @@
 struct Session
 {
 	std::shared_ptr<boost::asio::ip::tcp::socket> sock;
-	boost::asio::streambuf buf;
+	std::unique_ptr<boost::asio::streambuf> buf;
 };
 
 // Step 2.
@@ -22,7 +22,7 @@ void callback(
 {
 	if (!ec && s)
 	{
-		std::istream is(&s->buf);
+		std::istream is(s->buf.get());
 		std::string data; 
 		std::getline(is, data);
 
@@ -46,13 +46,15 @@ void readFromSocketDelim(
 	auto s = std::make_shared<Session>();
 
 	s->sock = std::move(sock);
-	auto &&buf = s->buf;
-	auto &&sck = s->sock;
+	s->buf = std::make_unique<boost::asio::streambuf>();
+
+	auto sck_raw_ptr = s->sock.get();
+	auto buf_raw_ptr = s->buf.get();
 
 	// Step 5. Initiating asynchronous reading operation.
 	boost::asio::async_read_until(
-		*sck,
-		buf,
+		*sck_raw_ptr,
+		*buf_raw_ptr,
 		'\n',
 		[
 			fn=callback,
