@@ -139,8 +139,6 @@ class Session final : public BaseSession
 
 		void cancel() override
 		{
-			std::lock_guard cancel_lock(m_cancel_guard);
-			
 			m_was_cancelled = true;
 			m_sock.cancel();
 		}
@@ -158,7 +156,6 @@ class Session final : public BaseSession
 
 		bool isSessionWasCancelled() const override
 		{
-			std::lock_guard lock(m_cancel_guard);
 			return m_was_cancelled;
 		}
 
@@ -214,8 +211,7 @@ class Session final : public BaseSession
 		// completes.
 		std::decay_t<Callback> m_callback;
 
-		bool m_was_cancelled = false;
-		mutable std::mutex m_cancel_guard;
+		std::atomic<bool> m_was_cancelled{false};
 };
 
 class AsyncTCPClient
