@@ -41,6 +41,17 @@ class ISession
 			boost::system::error_code&
 		) = 0;
 
+	protected:
+		virtual boost::asio::ip::tcp::socket& sock() = 0;
+		virtual const boost::asio::ip::tcp::endpoint& ep() const = 0;
+		virtual boost::asio::const_buffer getWriteBuffer() const = 0;
+		virtual boost::asio::streambuf&  getResponseBuffer() = 0;
+};
+
+// Base Session
+class BaseSession : public ISession
+{
+	public:
 		template <class Callback>
 		void asyncConnect(Callback &&callback)
 		{
@@ -52,7 +63,7 @@ class ISession
 			static_assert(is_valid_callback, "invalid callback");
 			sock().async_connect(
 				ep(),
-				callback
+				std::forward<Callback>(callback)
 			);
 		}
 
@@ -69,7 +80,7 @@ class ISession
 			boost::asio::async_write(
 				sock(),
 				getWriteBuffer(),
-				callback
+				std::forward<Callback>(callback)
 			);
 		}
 
@@ -87,21 +98,15 @@ class ISession
 				sock(),
 				getResponseBuffer(),
 				delim,
-				callback
+				std::forward<Callback>(callback)
 			);
 		}
-
-	protected:
-		virtual boost::asio::ip::tcp::socket& sock() = 0;
-		virtual const boost::asio::ip::tcp::endpoint& ep() const = 0;
-		virtual boost::asio::const_buffer getWriteBuffer() const = 0;
-		virtual boost::asio::streambuf&  getResponseBuffer() = 0;
 };
 
 // Class represents a context of a single request.
 // Callback is invocable type which is called when a request is complete.
 template< class Callback >
-class Session final : public ISession
+class Session final : public BaseSession
 {
 	public:
 		Session(
@@ -243,7 +248,7 @@ class AsyncTCPClient
 				request.push_back('\n');
 			}
 
-			std::shared_ptr<ISession> session(new Session<Callback>(
+			std::shared_ptr<BaseSession> session(new Session<Callback>(
 					m_ioc,
 					raw_ip_address,
 					port_num,
@@ -299,7 +304,7 @@ class AsyncTCPClient
 
 	private:
 		void onConnect(
-			std::shared_ptr<ISession> session, 
+			std::shared_ptr<BaseSession> session, 
 			const boost::system::error_code &ec
 		)
 		{
@@ -325,7 +330,7 @@ class AsyncTCPClient
 		}
 
 		void onWriteComplete(
-			std::shared_ptr<ISession> session, 
+			std::shared_ptr<BaseSession> session, 
 			const boost::system::error_code &ec,
 			std::size_t bytes_transferred
 		)
@@ -355,7 +360,7 @@ class AsyncTCPClient
 		}
 
 		void onRequestComplete(
-			std::shared_ptr<ISession> session, 
+			std::shared_ptr<BaseSession> session, 
 			const boost::system::error_code &ec,
 			bool cancelled = false
 		)
@@ -388,7 +393,7 @@ class AsyncTCPClient
 	private:
 		inline static constexpr char m_op_name[] = "EMULATE_LONG_COMP_OP ";
 		boost::asio::io_context m_ioc;
-		std::map<std::size_t, std::shared_ptr<ISession>> m_active_sessions;
+		std::map<std::size_t, std::shared_ptr<BaseSession>> m_active_sessions;
 		std::mutex m_active_sessions_guard;
 		using work_type = boost::asio::executor_work_guard<boost::asio::io_context::executor_type>;
 		std::unique_ptr<work_type> m_work{ std::make_unique<work_type>(boost::asio::make_work_guard(m_ioc)) };
