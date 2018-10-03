@@ -41,6 +41,57 @@ class ISession
 			boost::system::error_code&
 		) = 0;
 
+		template <class Callback>
+		void asyncConnect(Callback &&callback)
+		{
+			constexpr bool is_valid_callback = std::is_invocable_r_v<
+				void,
+				decltype(callback),
+				const boost::system::error_code&
+			>;
+			static_assert(is_valid_callback, "invalid callback");
+			sock().async_connect(
+				ep(),
+				callback
+			);
+		}
+
+		template <class Callback>
+		void asyncWrite(Callback &&callback) 
+		{
+			constexpr bool is_valid_callback = std::is_invocable_r_v<
+				void,
+				decltype(callback),
+				const boost::system::error_code&,
+				std::size_t
+			>;
+			static_assert(is_valid_callback, "invalid callback");
+			boost::asio::async_write(
+				sock(),
+				getWriteBuffer(),
+				callback
+			);
+		}
+
+		template <class Callback>
+		void asyncReadUntil(std::string_view delim, Callback &&callback)
+		{
+			constexpr bool is_valid_callback = std::is_invocable_r_v<
+				void,
+				decltype(callback),
+				const boost::system::error_code&,
+				std::size_t
+			>;
+			static_assert(is_valid_callback, "invalid callback");
+			boost::asio::async_read_until(
+				sock(),
+				getResponseBuffer(),
+				delim,
+				callback
+			);
+		}
+
+	protected:
 		virtual boost::asio::ip::tcp::socket& sock() = 0;
 		virtual const boost::asio::ip::tcp::endpoint& ep() const = 0;
 		virtual boost::asio::const_buffer getWriteBuffer() const = 0;
@@ -75,10 +126,12 @@ class Session final : public ISession
 				const boost::system::error_code&
 			>;
 			static_assert(is_valid_callback, "invalid callback");
+
+			m_sock.open(m_ep.protocol());
 		}
 
 		~Session() override = default;
-	private:
+
 		void cancel() override
 		{
 			std::lock_guard cancel_lock(m_cancel_guard);
@@ -117,6 +170,7 @@ class Session final : public ISession
 			m_sock.shutdown(type,ec);
 		}
 
+	private:
 		boost::asio::ip::tcp::socket& sock() override
 		{
 			return m_sock;
@@ -199,8 +253,6 @@ class AsyncTCPClient
 				)
 			);
 
-			session->sock().open(session->ep().protocol());
-
 			// Add new session to the map of active sessions so
 			// that we can access it if the user decides to cannel
 			// the corresponding request before if completes.
@@ -212,11 +264,8 @@ class AsyncTCPClient
 				m_active_sessions[request_id] = session;
 			}
 			
-			auto &&sock = session->sock();
-			auto &&ep = session->ep();
-
-			sock.async_connect(
-				ep,
+			auto session_raw_ptr = session.get();
+			session_raw_ptr->asyncConnect(
 				[this, session=std::move(session)](auto &&ec) mutable
 				{
 					onConnect(std::move(session), ec);
@@ -266,11 +315,8 @@ class AsyncTCPClient
 				return;
 			}
 
-			auto &&sock = session->sock();
-			auto buffer = session->getWriteBuffer();
-			boost::asio::async_write(
-				sock,
-				buffer,
+			auto session_raw_ptr = session.get();
+			session_raw_ptr->asyncWrite(
 				[this, session=std::move(session)](auto &&ec, auto bt) mutable
 				{
 					onWriteComplete(std::move(session), ec, bt);
@@ -297,12 +343,9 @@ class AsyncTCPClient
 				return;
 			}
 			
-			auto &&sock = session->sock();
-			auto &&buffer = session->getResponseBuffer();
-			boost::asio::async_read_until(
-				sock,
-				buffer,
-				'\n',
+			auto session_raw_ptr = session.get();
+			session_raw_ptr->asyncReadUntil(
+				"\n",
 				[this, session=std::move(session)](auto &&ec, auto bt) mutable
 				{
 					bool cancelled = session->isSessionWasCancelled();
