@@ -9,14 +9,32 @@
 class Service
 {
 	public:
+		std::unique_ptr<Service> static create()
+		{
+			return std::unique_ptr<Service>(new Service);
+		}
+		
+		void static startHandlingClient(
+			std::unique_ptr<boost::asio::ip::tcp::socket> sock
+		)
+		{
+			std::thread(
+				&Service::handleClient,
+				std::move(Service::create()),
+				std::move(sock)
+			).detach();
+		}
+	private:
 		Service() = default;
 
-		void handleClient(boost::asio::ip::tcp::socket &sock)
+		void handleClient(
+			std::unique_ptr<boost::asio::ip::tcp::socket> sock
+		)
 		{
 			try
 			{
 				boost::asio::streambuf request_buf;
-				boost::asio::read_until(sock, request_buf, '\n');
+				boost::asio::read_until(*sock, request_buf, '\n');
 				std::istream is(&request_buf);
 				std::string request_str;
 				std::getline(is, request_str);
@@ -31,7 +49,11 @@ class Service
 				{
 					auto sec_str_v = request.substr(pos + op.length()); 
 					if (
-							auto [ptr, ec] = std::from_chars(sec_str_v.data(), sec_str_v.data()+sec_str_v.length(), sec_count);
+							auto [ptr, ec] = std::from_chars(
+								sec_str_v.data(), 
+								sec_str_v.data()+sec_str_v.length(), 
+								sec_count
+							);
 							!std::make_error_code(ec)
 					   )
 						std::this_thread::sleep_for(std::chrono::seconds(sec_count));
@@ -42,7 +64,7 @@ class Service
 				std::string_view response = error_occured ? "ERROR\n" : "OK\n";
 
 				// Sending response.
-				boost::asio::write(sock,boost::asio::buffer(response));
+				boost::asio::write(*sock,boost::asio::buffer(response));
 			}
 			catch (boost::system::system_error &e)
 			{
@@ -50,6 +72,7 @@ class Service
 				<< e.code() << '\n';
 			}
 		}
+
 };
 
 class Acceptor
@@ -73,13 +96,13 @@ class Acceptor
 
 		void accept()
 		{
-			boost::asio::ip::tcp::socket sock(m_ioc);
+			auto sock = std::make_unique<boost::asio::ip::tcp::socket>(m_ioc);
 
-			m_acceptor.accept(sock);
+			m_acceptor.accept(*sock);
 
-			Service svc;
-			svc.handleClient(sock);
+			Service::startHandlingClient(std::move(sock));
 		}
+
 	private:
 		boost::asio::io_context &m_ioc;
 		boost::asio::ip::tcp::acceptor m_acceptor;
@@ -88,7 +111,6 @@ class Acceptor
 class Server
 {
 	public:
-
 		~Server()
 		{ 
 			if (m_thread.joinable())
@@ -125,7 +147,7 @@ class Server
 // to test this example
 int main()
 {
-	std::uint16_t port_num = 3334;
+	std::uint16_t port_num = 3335;
 
 	try
 	{
