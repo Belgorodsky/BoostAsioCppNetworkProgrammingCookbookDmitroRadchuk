@@ -558,6 +558,7 @@ void handle(
 		<< BOOST_CURRENT_FUNCTION << ' '
 		<< " Request #" << request.get_id()
 		<< " failed! Error code = " << ec
+		<< " message = " << ec.message()
 		<< std::endl;
 	}
 }
@@ -584,6 +585,14 @@ int main()
 
 		request_two->execute();
 		request_two->cancel();
+
+		auto request_thr = client.create_request(3);
+		request_thr->set_host("127.0.0.1");
+		request_thr->set_uri("/index.html");
+		request_thr->set_port(80);
+		request_thr->set_callback(handle);
+
+		request_thr->execute();
 
 		// Do nothing until enter pressed
 		std::cin.get();
