@@ -77,11 +77,11 @@ class Acceptor
 		m_ssl_context(boost::asio::ssl::context::sslv23_server)
 		{
 			// Setting up the context.
-//			m_ssl_context.set_options(
-//				boost::asio::ssl::context::default_workarounds |
-//				boost::asio::ssl::context::no_sslv2 |
-//				boost::asio::ssl::context::single_dh_use
-//			);
+			m_ssl_context.set_options(
+				boost::asio::ssl::context::default_workarounds |
+				boost::asio::ssl::context::no_sslv2 |
+				boost::asio::ssl::context::single_dh_use
+			);
 			
 			m_ssl_context.set_password_callback(
 				[this](auto ml, auto purp)
@@ -90,12 +90,12 @@ class Acceptor
 				}
 			);
 
-//			m_ssl_context.use_certificate_chain_file("server.crt");
-//			m_ssl_context.use_private_key_file(
-//				"server.key",
-//				boost::asio::ssl::context::pem
-//			);
-//			m_ssl_context.use_tmp_dh_file("dhparams.pem");
+			m_ssl_context.use_certificate_chain_file("user.crt");
+			m_ssl_context.use_private_key_file(
+				"user.key",
+				boost::asio::ssl::context::pem
+			);
+			m_ssl_context.use_tmp_dh_file("dh2048.pem");
 
 			m_acceptor.listen();
 		}
